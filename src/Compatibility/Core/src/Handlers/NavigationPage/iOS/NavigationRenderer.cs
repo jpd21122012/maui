@@ -37,7 +37,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		UIImage _defaultNavBarBackImage;
 		bool _disposed;
 		IMauiContext _mauiContext;
-		IMauiContext MauiContext => _mauiContext ?? NavPage.Handler.MauiContext;
+		IMauiContext MauiContext => _mauiContext;
 		public static IPropertyMapper<NavigationPage, NavigationRenderer> Mapper = new PropertyMapper<NavigationPage, NavigationRenderer>(ViewHandler.ViewMapper);
 		public static CommandMapper<NavigationPage, NavigationRenderer> CommandMapper = new CommandMapper<NavigationPage, NavigationRenderer>(ViewHandler.ViewCommandMapper);
 		ViewHandlerDelegator<NavigationPage> _viewHandlerWrapper;
