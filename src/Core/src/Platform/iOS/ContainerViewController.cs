@@ -67,10 +67,11 @@ namespace Microsoft.Maui.Platform
 			currentNativeView = _pendingLoadedView ?? CreateNativeView(view);
 			_pendingLoadedView = null;
 
-			View!.AddSubview(currentNativeView);
+			if(currentNativeView.Superview == null)
+				View!.AddSubview(currentNativeView);
 
 			if (view is IView v && v.Background == null)
-				View.BackgroundColor = UIColor.SystemBackgroundColor;
+				View!.BackgroundColor = UIColor.SystemBackgroundColor;
 		}
 
 		protected virtual UIView CreateNativeView(IElement view)

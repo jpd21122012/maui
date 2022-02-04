@@ -812,7 +812,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 			FlyoutPage.Flyout.IconImageSource.LoadImage(FlyoutPage.FindMauiContext(), result =>
 			{
-				var icon = result.Value;
+				var icon = result?.Value;
 				if (icon != null)
 				{
 					try

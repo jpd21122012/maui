@@ -35,7 +35,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		public static CommandMapper<FlyoutPage, PhoneFlyoutPageRenderer> CommandMapper = new CommandMapper<FlyoutPage, PhoneFlyoutPageRenderer>(ViewHandler.ViewCommandMapper);
 		ViewHandlerDelegator<FlyoutPage> _viewHandlerWrapper;
 
-
 		[Preserve(Conditional = true)]
 		public PhoneFlyoutPageRenderer()
 		{
@@ -81,15 +80,14 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		public void SetElement(VisualElement element)
 		{
-			var oldElement = Element;
+			var flyoutPage = element as FlyoutPage;
 
-			_flyoutController = new ChildViewController();
-			_detailController = new ChildViewController();
+			_flyoutController = (flyoutPage.Flyout.ToHandler(MauiContext) as INativeViewHandler).ViewController;
+			_detailController = (flyoutPage.Detail.ToHandler(MauiContext) as INativeViewHandler).ViewController;
 
 			_clickOffView = new UIView();
 			_clickOffView.BackgroundColor = new Color(0, 0, 0, 0).ToNative();
-
-			Presented = ((FlyoutPage)Element).IsPresented;
+			Presented = ((FlyoutPage)element).IsPresented;
 			_viewHandlerWrapper.SetVirtualView(element, OnElementChanged, false);
 			Element.SizeChanged += PageOnSizeChanged;
 		}
@@ -123,7 +121,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 			// TODO MAUI: Is this correct?
 			if (Element.Width == -1 && Element.Height == -1)
-				Element.Layout(new Rectangle(Element.X, Element.Y, View.Bounds.Width, View.Bounds.Height));
+				(Element as IView).Arrange(new Rectangle(Element.X, Element.Y, View.Bounds.Width, View.Bounds.Height));
 
 			LayoutChildren(false);
 		}
@@ -207,11 +205,17 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void EmptyContainers()
 		{
-			foreach (var child in _detailController.View.Subviews.Concat(_flyoutController.View.Subviews))
+			/*foreach (var child in _detailController.View.Subviews.Concat(_flyoutController.View.Subviews))
 				child.RemoveFromSuperview();
 
 			foreach (var vc in _detailController.ChildViewControllers.Concat(_flyoutController.ChildViewControllers))
-				vc.RemoveFromParentViewController();
+				vc.RemoveFromParentViewController();*/
+
+			/*_detailController.RemoveFromParentViewController();
+			_detailController.View.RemoveFromSuperview();
+
+			_flyoutController.RemoveFromParentViewController();
+			_flyoutController.View.RemoveFromSuperview();*/
 		}
 
 		void HandleFlyoutPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -254,6 +258,10 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			}
 
 			_flyoutController.View.Frame = flyoutFrame;
+			//_flyoutController.View.InvalidateMeasure(FlyoutPage.Flyout);
+
+			(FlyoutPage.Flyout as IView).Measure(flyoutFrame.Width, flyoutFrame.Height);
+			FlyoutPage.Flyout.Handler.NativeArrangeHandler(new Rectangle(0,0, flyoutFrame.Width, flyoutFrame.Height));
 
 			var target = frame;
 			if (Presented)
@@ -315,7 +323,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		{
 			((Page)(Element)).BackgroundImageSource.LoadImage(MauiContext, result =>
 			{
-				var bgImage = result.Value;
+				var bgImage = result?.Value;
 				if (bgImage != null)
 					View.BackgroundColor = UIColor.FromPatternImage(bgImage);
 				else
@@ -506,6 +514,49 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 				return true;
 
 			return IsSwipeView(view.Superview);
+		}
+
+
+		class FlyoutPageChildViewController : ChildViewController
+		{
+			public override void ViewDidLayoutSubviews()
+			{
+				foreach (var vc in ChildViewControllers)
+					vc.View.Frame = View.Bounds;
+			}
+
+			public override void RemoveFromParentViewController()
+			{
+				base.RemoveFromParentViewController();
+			}
+
+			public override void WillMoveToParentViewController(UIViewController parent)
+			{
+				base.WillMoveToParentViewController(parent);
+			}
+
+			public class ShaneView : UIView
+			{
+				public override void RemoveFromSuperview()
+				{
+					base.RemoveFromSuperview();
+				}
+
+				public override void SubviewAdded(UIView uiview)
+				{
+					base.SubviewAdded(uiview);
+				}
+
+				public override void WillRemoveSubview(UIView uiview)
+				{
+					base.WillRemoveSubview(uiview);
+				}
+			}
+
+			public override void LoadView()
+			{
+				View = new ShaneView();
+			}
 		}
 
 		class ChildViewController : UIViewController

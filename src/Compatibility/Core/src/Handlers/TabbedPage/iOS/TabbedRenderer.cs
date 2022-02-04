@@ -328,7 +328,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void SetupPage(Page page, int index)
 		{
-			var renderer = (INativeViewHandler)page.ToPlatform(_mauiContext);
+			var renderer = (INativeViewHandler)page.ToHandler(_mauiContext);
 
 			page.PropertyChanged += OnPagePropertyChanged;
 
