@@ -205,11 +205,11 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		void EmptyContainers()
 		{
-			/*foreach (var child in _detailController.View.Subviews.Concat(_flyoutController.View.Subviews))
+			foreach (var child in _detailController.View.Subviews.Concat(_flyoutController.View.Subviews))
 				child.RemoveFromSuperview();
 
 			foreach (var vc in _detailController.ChildViewControllers.Concat(_flyoutController.ChildViewControllers))
-				vc.RemoveFromParentViewController();*/
+				vc.RemoveFromParentViewController();
 
 			/*_detailController.RemoveFromParentViewController();
 			_detailController.View.RemoveFromSuperview();
@@ -354,12 +354,12 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 			((FlyoutPage)Element).Flyout.PropertyChanged += HandleFlyoutPropertyChanged;
 
-			UIView flyoutView = flyoutRenderer.NativeView;
+			UIView flyoutView = flyoutRenderer.ViewController.View;
 
 			_flyoutController.View.AddSubview(flyoutView);
 			_flyoutController.AddChildViewController(flyoutRenderer.ViewController);
 
-			UIView detailView = detailRenderer.NativeView;
+			UIView detailView = detailRenderer.ViewController.View;
 
 			_detailController.View.AddSubview(detailView);
 			_detailController.AddChildViewController(detailRenderer.ViewController);

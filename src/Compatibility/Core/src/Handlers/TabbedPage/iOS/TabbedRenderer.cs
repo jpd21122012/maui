@@ -515,7 +515,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 			page.IconImageSource.LoadImage(MauiContext, result =>
 			{
-				if (result.Value == null)
+				if (result?.Value == null)
 					source.SetResult(null);
 				else
 					source.SetResult(Tuple.Create(result.Value, (UIImage)null));
