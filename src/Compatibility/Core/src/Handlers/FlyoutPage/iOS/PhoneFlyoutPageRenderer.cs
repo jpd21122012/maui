@@ -82,8 +82,8 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		{
 			var flyoutPage = element as FlyoutPage;
 
-			_flyoutController = (flyoutPage.Flyout.ToHandler(MauiContext) as INativeViewHandler).ViewController;
-			_detailController = (flyoutPage.Detail.ToHandler(MauiContext) as INativeViewHandler).ViewController;
+			_flyoutController = new ChildViewController();
+			_detailController = new ChildViewController();
 
 			_clickOffView = new UIView();
 			_clickOffView.BackgroundColor = new Color(0, 0, 0, 0).ToNative();
@@ -210,12 +210,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 			foreach (var vc in _detailController.ChildViewControllers.Concat(_flyoutController.ChildViewControllers))
 				vc.RemoveFromParentViewController();
-
-			/*_detailController.RemoveFromParentViewController();
-			_detailController.View.RemoveFromSuperview();
-
-			_flyoutController.RemoveFromParentViewController();
-			_flyoutController.View.RemoveFromSuperview();*/
 		}
 
 		void HandleFlyoutPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -258,7 +252,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			}
 
 			_flyoutController.View.Frame = flyoutFrame;
-			//_flyoutController.View.InvalidateMeasure(FlyoutPage.Flyout);
 
 			(FlyoutPage.Flyout as IView).Measure(flyoutFrame.Width, flyoutFrame.Height);
 			FlyoutPage.Flyout.Handler.NativeArrangeHandler(new Rectangle(0,0, flyoutFrame.Width, flyoutFrame.Height));
