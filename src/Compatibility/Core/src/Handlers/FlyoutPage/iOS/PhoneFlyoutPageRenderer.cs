@@ -509,49 +509,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			return IsSwipeView(view.Superview);
 		}
 
-
-		class FlyoutPageChildViewController : ChildViewController
-		{
-			public override void ViewDidLayoutSubviews()
-			{
-				foreach (var vc in ChildViewControllers)
-					vc.View.Frame = View.Bounds;
-			}
-
-			public override void RemoveFromParentViewController()
-			{
-				base.RemoveFromParentViewController();
-			}
-
-			public override void WillMoveToParentViewController(UIViewController parent)
-			{
-				base.WillMoveToParentViewController(parent);
-			}
-
-			public class ShaneView : UIView
-			{
-				public override void RemoveFromSuperview()
-				{
-					base.RemoveFromSuperview();
-				}
-
-				public override void SubviewAdded(UIView uiview)
-				{
-					base.SubviewAdded(uiview);
-				}
-
-				public override void WillRemoveSubview(UIView uiview)
-				{
-					base.WillRemoveSubview(uiview);
-				}
-			}
-
-			public override void LoadView()
-			{
-				View = new ShaneView();
-			}
-		}
-
 		class ChildViewController : UIViewController
 		{
 			public override void ViewDidLayoutSubviews()

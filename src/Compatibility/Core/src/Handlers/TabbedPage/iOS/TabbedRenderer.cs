@@ -31,13 +31,14 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		public static IPropertyMapper<TabbedPage, TabbedRenderer> Mapper = new PropertyMapper<TabbedPage, TabbedRenderer>(ViewHandler.ViewMapper);
 		public static CommandMapper<TabbedPage, TabbedRenderer> CommandMapper = new CommandMapper<TabbedPage, TabbedRenderer>(ViewHandler.ViewCommandMapper);
 		ViewHandlerDelegator<TabbedPage> _viewHandlerWrapper;
-
+		Maui.Platform.ContentView _contentView;
 		Page Page => Element as Page;
 
 		[Microsoft.Maui.Controls.Internals.Preserve(Conditional = true)]
 		public TabbedRenderer()
 		{
 			_viewHandlerWrapper = new ViewHandlerDelegator<TabbedPage>(Mapper, CommandMapper, this);
+			_contentView = new Maui.Platform.ContentView();
 		}
 
 		public override UIViewController SelectedViewController
@@ -69,7 +70,9 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		public void SetElement(VisualElement element)
 		{
-			var oldElement = Element;
+			//_contentView.CrossPlatformArrange = ((IContentView)element).CrossPlatformArrange;
+			//_contentView.CrossPlatformMeasure = ((IContentView)element).CrossPlatformMeasure;
+
 			_viewHandlerWrapper.SetVirtualView(element, OnElementChanged, false);
 
 			FinishedCustomizingViewControllers += HandleFinishedCustomizingViewControllers;
@@ -119,6 +122,11 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			base.ViewDidDisappear(animated);
 			Page.SendDisappearing();
 		}
+
+		//public override void ViewDidLoad()
+		//{
+		//	View = _contentView;
+		//}
 
 		public override void ViewDidLayoutSubviews()
 		{
@@ -261,7 +269,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 		public override UIViewController ChildViewControllerForStatusBarHidden()
 		{
-			var current = Tabbed.CurrentPage;
+			var current = Tabbed?.CurrentPage;
 			if (current == null)
 				return null;
 

@@ -26,9 +26,8 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		internal const string UpdateToolbarButtons = "Xamarin.UpdateToolbarButtons";
 		bool _appeared;
 		bool _ignorePopCall;
-		bool _loaded;
+		//bool _loaded;
 		FlyoutPage _parentFlyoutPage;
-		Size _queuedSize;
 		UIViewController[] _removeControllers;
 		UIToolbar _secondaryToolbar;
 		nfloat _navigationBottom = 0;
@@ -55,7 +54,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		NavigationPage NavPage => Element as NavigationPage;
 		INavigationPageController NavPageController => NavPage;
 
-		public VisualElement Element { get => _viewHandlerWrapper.Element;  }
+		public VisualElement Element { get => _viewHandlerWrapper.Element; }
 
 		public event EventHandler<VisualElementChangedEventArgs> ElementChanged;
 
@@ -73,14 +72,6 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 		public void SetElement(VisualElement element)
 		{
 			(this as IElementHandler).SetVirtualView(element);
-		}
-
-		public void SetElementSize(Size size)
-		{
-			if (_loaded)
-				Element.Layout(new Rectangle(Element.X, Element.Y, size.Width, size.Height));
-			else
-				_queuedSize = size;
 		}
 
 		public UIViewController ViewController
@@ -164,6 +155,7 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			base.ViewDidLayoutSubviews();
 			if (Current == null)
 				return;
+
 			UpdateToolBarVisible();
 
 			var navBarFrameBottom = Math.Min(NavigationBar.Frame.Bottom, 140);
@@ -178,23 +170,24 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 			toolbar.Frame = new RectangleF(0, toolbarY, View.Frame.Width, toolbar.Frame.Height);
 
 			double trueBottom = toolbar.Hidden ? toolbarY : toolbar.Frame.Bottom;
-			var modelSize = _queuedSize.IsZero ? Element.Bounds.Size : _queuedSize;
-			PageController.ContainerArea =
-				new Rectangle(0, toolbar.Hidden ? 0 : toolbar.Frame.Height, modelSize.Width, modelSize.Height - trueBottom);
 
-			if (!_queuedSize.IsZero)
-			{
-				Element.Layout(new Rectangle(Element.X, Element.Y, _queuedSize.Width, _queuedSize.Height));
-				_queuedSize = Size.Zero;
-			}
+			Element.Frame = new Rectangle(0, 0, View.Frame.Width, View.Frame.Height);
 
-			_loaded = true;
+			var modelSize = Element.Bounds.Size;
+			//PageController.ContainerArea =
+			//	new Rectangle(0, toolbar.Hidden ? 0 : toolbar.Frame.Height, modelSize.Width, modelSize.Height - trueBottom);
+
+			(Element as IView)
+				.Arrange(new Rectangle(Element.X, Element.Y, modelSize.Width, modelSize.Height - trueBottom));
+
+			//_loaded = true;
 
 			foreach (var view in View.Subviews)
 			{
 				if (view == NavigationBar || view == _secondaryToolbar)
 					continue;
-				view.Frame = View.Bounds;
+
+				view.Frame = new Rectangle(0, 0, modelSize.Width, modelSize.Height - trueBottom);
 			}
 		}
 
