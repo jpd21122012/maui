@@ -15,10 +15,19 @@ When a fact changes (e.g. a pipeline definition ID), change it HERE only.
 
 # .NET MAUI CI Facts
 
-Authoritative reference for dotnet/maui CI investigation, test-failure
-classification, and merge-readiness assessment. Both the interactive
-`azdo-build-investigator` skill and the automated `/review tests`
-(`review-test-failures`) workflow reason from these same facts.
+Authoritative operational reference for dotnet/maui CI investigation. The
+`review-test-failures` skill owns the current `/review tests` attribution rubric
+and compact, pipeline-grouped comment. It compares all three pipelines with their latest five
+completed runs on the PR's exact target branch (`pr.baseRefName`), then relates
+failures to the PR diff. Previous PR-branch runs are not the baseline or required
+coverage. Target sampling is independent of current PR build availability and is
+not cut off at the PR build's queue time; missing or unreadable samples remain explicit.
+If no usable current-PR results or build-failure diagnostics exist in any pipeline,
+evaluation and target sampling are skipped, with a short `/azp run` request instead.
+
+The deterministic merge-readiness fields documented below remain in the gatherer
+for compatibility. They are not the current `/review tests` report policy: a
+green base job alone is not causal proof, and missing evidence is reported explicitly.
 
 ## Pipelines
 
@@ -53,6 +62,44 @@ and `maui-pr-uitests` may not run automatically depending on the changed files.
 - If a build returns **404** even with authenticated access, classify it as
   inaccessible/expired/insufficient data — do not assume unrelated or PR-caused.
 - Helix work-item console output may live behind `helix.dot.net` and Azure Blob URLs.
+
+## Setup-only retries
+
+Shared test preparation uses **at most five total attempts per setup operation**,
+not five additional retries or five whole-job reruns. Azure task-level recovery
+uses `retryCountOnTaskFailure: 4`, with the agent's backoff and attempt diagnostics.
+Task and job timeouts can end recovery earlier; exhaustion remains a failed step.
+
+- `eng/pipelines/common/provision.yml` covers .NET SDK/tool installation, JDK,
+  Xcode selection/provisioning, Android SDK environment discovery and AVD creation.
+  Its consumers include UI-test lanes (including Material3), device-test builds,
+  unit/Helix preparation, integration tests and the review gate. Platform and skip
+  conditions still determine which operations run.
+- Android common packages, platform APIs and emulator images retry **per package**
+  through `src/Provisioning/Provisioning.csproj` and
+  `eng/scripts/Install-AndroidSdkPackage.ps1`. Only Azure Pipelines installs retry;
+  local installs still attempt once. Each CI attempt has a fresh Android user
+  cache and temporary directory. After a failed attempt, the installer discovers
+  the SDK path and removes only the failed package directory and the SDK's `.temp`
+  staging directory before retrying. Successful packages are not reinstalled.
+  The enclosing Azure task does not retry, avoiding a five-by-five multiplier.
+- Simulator-runtime installation keeps its existing CoreSimulator recovery, but
+  counts the initial download toward the five-attempt cap and fails on exhaustion
+  or an unusable runtime instead of continuing with a warning.
+- Shared UI/device/template/integration setup also retries artifact downloads and
+  separate .NET SDK/workload/tool installation. UI setup additionally retries Node
+  and Appium installation. Windows Helix-device preparation and the legacy
+  handler/template paths use the same task retry count.
+- The Cake UI runner retries its explicitly separated preparation/build phases
+  before invoking the test runner: iOS device preparation, Android APK installation,
+  Windows test paths, and UI-test project builds on all four platforms. Local
+  runs and non-UI Cake targets keep their existing behavior.
+
+This is **not** a retry based on an absent TRX or a zero test count. Test commands,
+NUnit fixture setup/teardown, result reconciliation, publication, and existing
+test-execution retries are unchanged. Android emulator boot, independent review
+gate preparation, and provisioning inside Helix/XHarness workers retain their
+existing policies; shared agent setup does not wrap or resubmit those test runs.
 
 ## Enumerate EVERY failed leg — Build Analysis is NOT exhaustive
 
@@ -268,23 +315,14 @@ Messages like `Baseline snapshot not yet created`, missing snapshot paths, or sn
 environment-version mismatches are strong **unrelated** evidence — unless the PR adds or
 modifies that visual test or the affected snapshot/platform.
 
-The automated `/review tests` lane gathers failed UI result IDs from the public
+The gatherer can collect failed UI result IDs from the public
 `vstmr.dev.azure.com/.../testresults/resultsbybuild` endpoint, then reads the public
-result-detail and attachment APIs. It publishes validated baseline/actual/diff PNGs to
-the repository's orphan, asset-only `review-tests-assets-v2` branch. The legacy
-`review-tests-assets` branch remains intact so existing commit-pinned image URLs stay
-reachable; it is not used for new publications because its inherited repository tree
-contains workflow files that `GITHUB_TOKEN` cannot update. A trusted post-step inserts
-as many complete expandable comparison panels as fit inside the single test-failure
-analysis comment while enforcing gh-aw's URL, mention, and character limits; excess
-panels are reported as omitted rather than creating another comment. Visual publishing is
-supplementary evidence only: missing images never raise or lower the deterministic
-verdict ceiling. Each panel also shows a conservative relationship label derived from
-the exact test-and-platform `deterministicAttribution` plus exact changed snapshot/test
-scope: `regressed-vs-base` or directly changed visual coverage is Likely PR-caused,
-`pre-existing-on-base` or `known-issue` is Likely unrelated, and indeterminate or
-unmatched evidence remains Needs human investigation. A same-named snapshot on another
-platform and platform or area mismatch alone never change the label.
+result-detail and attachment APIs. The simplified workflow/local runner skips
+visual enrichment and no longer publishes image panels. Earlier reports used the
+asset-only `review-tests-assets-v2` branch (and previously `review-tests-assets`);
+those branches and their commit-pinned image URLs remain intact. The legacy
+publisher/merger scripts are retained for compatibility, not called by the current
+`/review tests` workflow. Missing images do not establish a failure's cause.
 
 ## Platform mismatch
 
@@ -330,9 +368,10 @@ error XAGRDL0000: Could not GET '...pkgs.dev.azure.com/.../maven/v1/...'
 
 ## Merge-readiness criteria
 
-Used by both the interactive investigator (answering "is this PR ready to merge?") and
-the automated `/review tests` overall verdict. Assess **only CI/test health** — code
-review and approval are separate, human-only decisions.
+Retained for the interactive investigator and legacy deterministic gate consumers.
+The current `/review tests` skill reports attribution and evidence coverage instead
+of these merge-readiness verdicts. Assess **only CI/test health** — code review and
+approval are separate, human-only decisions.
 
 | Overall verdict | Use when |
 |-----------------|----------|
@@ -405,6 +444,15 @@ on appearance alone:
    dismisses, because a broad known-issue regex could otherwise launder a PR-caused break in
    a *different* test that merely shares a red leg on base. An uncorroborated text match (no
    exact base match) stays `indeterminate` (`Needs human investigation`).
+   The local gatherer preserves `ErrorMessage` arrays as ordered AND conditions:
+   every literal must occur on a distinct subsequent line within one actual occurrence,
+   following the [public BA array contract](https://github.com/dotnet/arcade/blob/5a63d054ea793bdbdb6aa9f4558558e3a8f41529/Documentation/Build%20Analysis/KnownIssues.md#fill-out-known-issues-with-a-list-of-errors).
+   Each array's matched text includes that occurrence's name, message, and separately
+   captured stack trace. Arrays cannot combine evidence from separate occurrences of a
+   deduplicated test/platform. Scalar and regex rules retain their existing aggregated text.
+   Case-insensitive matching, the 20,000-character cap per matched text, first-matching-rule
+   selection, and attribution gates are unchanged. This local hint matcher does not
+   establish full Build Analysis/Build Insights service parity.
 4. **Retry recovery** — the failing leg was retried by CI and **passed** on a later
    attempt (the recovered leg does not surface as a failure at all). A leg that was retried
    and **still failed** (`retriedStillFailing = true`) is the opposite — **persistent**,
@@ -414,9 +462,10 @@ If none of these hold, a failure on a path/platform the PR changes leans PR-caus
 that **not every failure is a test** — a red build leg with no extracted test name still
 counts as a failure and must be classified, never silently dropped.
 
-The automated `/review tests` lane additionally computes a **deterministic verdict
-ceiling** in `Gather-TestFailureContext.ps1` (`gate.verdictCeiling`): the overall verdict
-can never be more favorable than what coverage allows. A green verdict
+The gatherer's **legacy deterministic verdict ceiling** (`gate.verdictCeiling`)
+constrains legacy merge-readiness consumers, not the current skill's attribution
+verdict. For those consumers, the overall verdict can never be more favorable than
+what coverage allows. A green verdict
 (`Ready to merge` / `No failures found`) is forbidden whenever a check is still pending, a
 failing check could not be inspected, **or a failed build leg produced no extractable
 failure** (`gate.unexplainedFailedLegs > 0` — the backstop that stops a crossgen/NativeAOT

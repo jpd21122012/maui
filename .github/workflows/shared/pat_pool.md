@@ -5,6 +5,7 @@ jobs:
   pat_pool:
     environment: ${{ github.aw.import-inputs.environment }}
     needs: [pre_activation]
+    if: ${{ github.aw.import-inputs.condition }}
     runs-on: ubuntu-slim
     outputs:
       pat_number: ${{ steps.select-pat-number.outputs.copilot_pat_number }}
@@ -33,8 +34,8 @@ jobs:
             var="COPILOT_PAT_${i}"
             val="${!var}"
             if [ -n "$val" ]; then
-              PAT_NUMBERS+=(${i})
-              POOL_INDICATORS[${i}]="🟪"
+              PAT_NUMBERS+=("$i")
+              POOL_INDICATORS[i]="🟪"
             fi
           done
 
@@ -55,7 +56,7 @@ jobs:
 
           PAT_INDEX=$(( RANDOM % ${#PAT_NUMBERS[@]} ))
           PAT_NUMBER="${PAT_NUMBERS[$PAT_INDEX]}"
-          POOL_INDICATORS[${PAT_NUMBER}]="✅"
+          POOL_INDICATORS[PAT_NUMBER]="✅"
 
           echo "Pool size: ${#PAT_NUMBERS[@]}"
           echo "Selected PAT number ${PAT_NUMBER} (index: ${PAT_INDEX})"
@@ -70,6 +71,11 @@ import-schema:
   environment:
     type: string
     required: true
+  condition:
+    type: string
+    required: false
+    default: success()
+    description: Job condition checked before accessing pool credentials.
   COPILOT_PAT_0:
     type: string
     required: false

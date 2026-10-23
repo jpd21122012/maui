@@ -11,6 +11,7 @@ description: |
 # Select a Copilot credential from the reviewed pool and gate the workflow behind
 # its protected deployment environment.
 imports:
+  - shared/gpt-6.1-sol.md
   - uses: shared/pat_pool.md
     with:
       environment: copilot-pat-pool
@@ -102,16 +103,21 @@ on:
         if-no-files-found: warn
         retention-days: 7
 
-# Only invoke the agent when the deterministic pre-pass found something to draft.
-# A manual dispatch can select any ref, but activation runtime-imports `.github`
-# configuration from its checkout. Restrict agent execution to trusted main.
+# Keep the deterministic pre-pass and every downstream job out of forks.
+# A manual dispatch can select another ref, so only trusted main may reach
+# pre-activation.
 if: >-
   github.repository == 'dotnet/maui' &&
-  (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') &&
-  (github.event_name == 'workflow_dispatch' ||
-  needs.pre_activation.outputs.has_candidates == 'true')
+  (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
 
 jobs:
+  # Only invoke activation when the deterministic pre-pass found something to
+  # draft. A manual dispatch can select any ref, so restrict it to trusted main.
+  activation:
+    if: >-
+      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') &&
+      (github.event_name == 'workflow_dispatch' ||
+      needs.pre_activation.outputs.has_candidates == 'true')
   pre-activation:
     outputs:
       candidates: ${{ steps.candidate_context.outputs.candidates }}
@@ -128,10 +134,11 @@ concurrency:
   group: "gh-aw-${{ github.workflow }}"
   cancel-in-progress: false
 
-model: claude-sonnet-4.6
+model: gpt-6.1-sol
 engine:
   id: copilot
   env:
+    COPILOT_PROVIDER_WIRE_API: responses
     COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, 'NO COPILOT PAT AVAILABLE') }}
 
 network: defaults

@@ -13,6 +13,8 @@ namespace Microsoft.Maui.Controls.Handlers.Items2
 	public class SelectableItemsViewController2<TItemsView> : StructuredItemsViewController2<TItemsView>
 		where TItemsView : SelectableItemsView
 	{
+		bool _updateSelectionWhenAttached;
+
 		public SelectableItemsViewController2(TItemsView selectableItemsView, UICollectionViewLayout layout)
 			: base(selectableItemsView, layout)
 		{
@@ -26,7 +28,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items2
 		// _Only_ called if the user initiates the selection change; will not be called for programmatic selection
 		public override void ItemSelected(UICollectionView collectionView, NSIndexPath indexPath)
 		{
-			if (ItemsView?.ItemsSource is null || !ItemsView.IsExplicitlyEnabled)
+			if (ItemsView?.ItemsSource is null || !ItemsView.IsEnabled)
 			{
 				return;
 			}
@@ -36,7 +38,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items2
 		// _Only_ called if the user initiates the selection change; will not be called for programmatic selection
 		public override void ItemDeselected(UICollectionView collectionView, NSIndexPath indexPath)
 		{
-			if (ItemsView?.ItemsSource is null || !ItemsView.IsExplicitlyEnabled)
+			if (ItemsView?.ItemsSource is null || !ItemsView.IsEnabled)
 			{
 				return;
 			}
@@ -58,16 +60,26 @@ namespace Microsoft.Maui.Controls.Handlers.Items2
 				// Ensure the selected index is updated after the collection view's items generation is completed
 				if (!CollectionView.IsLoaded())
 				{
-					CollectionView.PerformBatchUpdates(null, _ =>
-					{
-						ValidateAndSelectItem(selectedItem, originalSource);
-					});
+					_updateSelectionWhenAttached = true;
 				}
 				else
 				{
 					ValidateAndSelectItem(selectedItem, originalSource);
 				}
 			}
+		}
+
+		private protected override void AttachingToWindow()
+		{
+			base.AttachingToWindow();
+
+			if (!_updateSelectionWhenAttached)
+			{
+				return;
+			}
+
+			_updateSelectionWhenAttached = false;
+			UpdatePlatformSelection();
 		}
 
 		private void ValidateAndSelectItem(object selectedItem, object originalSource)
@@ -186,7 +198,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items2
 		internal void UpdateSelectionMode()
 		{
 			var mode = ItemsView.SelectionMode;
-			var isEnabled = ItemsView.IsExplicitlyEnabled;
+			var isEnabled = ItemsView.IsEnabled;
 
 			switch (mode)
 			{

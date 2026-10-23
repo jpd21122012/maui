@@ -18,8 +18,9 @@ answering "why is CI red?" and "is this PR ready to merge?". Use it together wit
 > available). This skill provides MAUI-specific corrections and context on top of that.
 
 For the **automated** path (a maintainer comments `/review tests` on a PR), the
-`review-test-failures` skill does the same classification deterministically and posts a
-merge-readiness comment. Both skills reason from the same shared facts below.
+`review-test-failures` skill relates failures to the PR diff and the latest five
+completed runs per pipeline on the PR's target branch, then posts one compact attribution
+comment. It does not issue merge approval. Both use the operational facts below.
 
 ## MAUI CI facts (canonical)
 
@@ -29,8 +30,8 @@ All MAUI-specific facts live in **`.github/docs/maui-ci-facts.md`** — read it.
   `maui-pr-uitests` 313), org/project, and investigation priority order.
 - **AzDO data sources** (anonymous public build/timeline/log REST APIs; `_apis/test` is
   optional enrichment).
-- **XHarness exit-0 blind spot** and the Helix `aggregated` endpoint for hidden
-  device-test failures.
+- **XHarness exit-0 blind spot**, Helix work items, and actual result files for
+  hidden device-test failures.
 - **Container artifact binlogs** (Bearer token + File Container API; `mcp-binlog-tool`).
 - **Test count deduplication** (group by test name + OS platform).
 - **Baseline comparison** (is the failure already red on the base branch?).
@@ -94,4 +95,4 @@ src\Workload\workloads.csproj(30,3): error MSB4019: The imported project
 
 **Root cause of the Jun 2026 `inflight/current` outage (binlog-proven, fixed by [#36089](https://github.com/dotnet/maui/pull/36089)):** the workload packs (`Microsoft.NET.Sdk.Maui.Manifest`, `Microsoft.Maui.Sdk`) target **netstandard** but are shipping packages, so they set `<IsPackable>true</IsPackable>` explicitly. PR #32203 ("Don't pack .NET Standard") added a *blanket* `<IsPackable Condition="$(TargetFramework.Contains('netstandard'))">false</IsPackable>` to `Directory.Build.targets` — which is auto-imported at the **end** of every project, so it overrode the packs' explicit `true` → `IsPackable=false`. With `IsPackable=false`, NuGet `Pack` no-ops; and because the **"Pack, Sign" step runs `-pack` *without* `-build`** (only the later workloads step uses `-build`), the `Build` target never ran → `_GenerateVSWorkloadProps` (`AfterTargets="Build"`) never ran → `vs-workload.props` was never written → the line-30 import threw `MSB4019`. The fix guards the blanket rule with `and '$(IsPackable)' == ''` so explicit opt-ins survive. **This regression was `inflight/current`-only** (#32203's commit `543b1ebeb7` is not yet on `main`/`net10.0`) — so when it forward-ports, it must carry the guard or the break reappears. The general lesson when triaging this failure: confirm `IsPackable` actually evaluates `true` for the workload packs in the `pack.binlog`, and that the pack step's `Build` (hence `_GenerateVSWorkloadProps`) actually ran.
 
-> Distinguish from the **release** pipelines: `ci-official-release.yml` and `maui-release-internal.yml` are separate definitions used for shipping releases, not the nightly inflight dogfood build.
+> Distinguish from the **release** pipeline: `ci-official-release.yml` is used for shipping releases, not the nightly inflight dogfood build.

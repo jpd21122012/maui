@@ -1,5 +1,6 @@
 #nullable disable
 using System.ComponentModel;
+using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Graphics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -18,6 +19,7 @@ namespace Microsoft.Maui.Controls.Platform
 		View _content;
 		object _previousDataContext;
 		Shell _shell;
+		bool _updatingVisualState;
 		ShellView ShellView => _shell.Handler?.PlatformView as ShellView;
 
 		public ShellFlyoutItemView()
@@ -47,6 +49,9 @@ namespace Microsoft.Maui.Controls.Platform
 				else
 					_shell?.RemoveLogicalChild(_content);
 
+				// Remove resource listener from previous content
+				if (_content is IElementDefinition contentDef)
+					contentDef.RemoveResourcesChangedListener(OnResourcesChanged);
 				_content.Cleanup();
 				_content.BindingContext = null;
 				_content.Parent = null;
@@ -79,7 +84,9 @@ namespace Microsoft.Maui.Controls.Platform
 				else
 					_shell.AddLogicalChild(_content);
 
-
+				// Listen for resource changes to re-apply visual state when DynamicResources change at runtime
+				if (_content is IElementDefinition contentDef)
+					contentDef.AddResourcesChangedListener(OnResourcesChanged);
 				var platformView = _content.ToPlatform(_shell.Handler.MauiContext);
 
 				Content = platformView;
@@ -142,10 +149,25 @@ namespace Microsoft.Maui.Controls.Platform
 
 		void UpdateVisualState()
 		{
-			if (_content?.BindingContext is BaseShellItem baseShellItem && baseShellItem != null)
+			if (_updatingVisualState || _content?.BindingContext is not BaseShellItem baseShellItem)
 			{
-				_content.IsItemSelected = baseShellItem.IsChecked;
+				return;
 			}
+
+			try
+			{
+				_updatingVisualState = true;
+				VisualStateManager.GoToState(_content, baseShellItem.IsChecked ? "Selected" : "Normal", force: true);
+			}
+			finally
+			{
+				_updatingVisualState = false;
+			}
+		}
+
+		void OnResourcesChanged(object sender, ResourcesChangedEventArgs e)
+		{
+			UpdateVisualState();
 		}
 
 		static void IsSelectedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
